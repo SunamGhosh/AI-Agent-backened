@@ -7,7 +7,7 @@ const auth = require('../middleware/auth');
 const router = express.Router();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
 // Generate quiz based on learning gaps
 router.post('/generate', auth, async (req, res) => {
@@ -34,7 +34,7 @@ Create a ${difficulty} level quiz with 5-10 multiple choice questions that:
 3. Help overcome their weaknesses
 4. Are appropriate for their current level
 
-Return the quiz in this exact JSON format:
+Return the quiz in this exact JSON format. Return ONLY valid JSON without any markdown formatting, code blocks, or additional text:
 {
   "title": "Quiz Title",
   "description": "Brief description of what the quiz covers",
@@ -52,7 +52,30 @@ Return the quiz in this exact JSON format:
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
-    const quizData = JSON.parse(response.text());
+    const rawText = response.text();
+
+    // Clean the response to extract JSON from markdown code blocks
+    const cleanJsonResponse = (text) => {
+      // Remove markdown code block wrappers if present
+      text = text.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      // Remove any leading/trailing whitespace
+      text = text.trim();
+      return text;
+    };
+
+    const cleanedText = cleanJsonResponse(rawText);
+
+    let quizData;
+    try {
+      quizData = JSON.parse(cleanedText);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', cleanedText);
+      return res.status(500).json({
+        message: 'Error generating quiz',
+        error: 'AI response could not be parsed as valid JSON',
+        rawResponse: cleanedText.substring(0, 500) // Log first 500 chars for debugging
+      });
+    }
 
     // Create quiz in database
     const quiz = new Quiz({
@@ -216,5 +239,6 @@ router.get('/analytics/overview', auth, async (req, res) => {
 });
 
 module.exports = router;
+
 
 
