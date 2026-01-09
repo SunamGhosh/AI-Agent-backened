@@ -8,7 +8,7 @@ const router = express.Router();
 // Register user
 router.post('/register', async (req, res) => {
   try {
-    const { username, email, password, learningProfile } = req.body;
+    const { username, email, password, learningProfile, role } = req.body;
 
     // Check if user already exists
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
@@ -25,7 +25,8 @@ router.post('/register', async (req, res) => {
       username,
       email,
       password: hashedPassword,
-      learningProfile: learningProfile || {}
+      learningProfile: learningProfile || {},
+      role: role || 'user' // Default to user, can be admin
     });
 
     await user.save();
@@ -41,6 +42,7 @@ router.post('/register', async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
         learningProfile: user.learningProfile
       }
     });
@@ -77,6 +79,7 @@ router.post('/login', async (req, res) => {
         id: user._id,
         username: user.username,
         email: user.email,
+        role: user.role,
         learningProfile: user.learningProfile
       }
     });
